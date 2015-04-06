@@ -88,7 +88,7 @@ class AutoToolsNFePHP extends ToolsNFePHP {
     public function autoTXTtoXML(){
         //varre pasta "entradas" a procura de NFes em txt
         $aName = $this->listDir($this->entDir,'*-nfe.txt',false);
-        // se foi retornado algum arquivo
+	// se foi retornado algum arquivo
         $totTXT = count($aName);
         if ( $totTXT > 0){
             for ( $x=0; $x < $totTXT; $x++ ) {
@@ -117,7 +117,7 @@ class AutoToolsNFePHP extends ToolsNFePHP {
     /**
      * autoEnvNFe
      * Este método procura por NFe's na pasta VALIDADAS, se houver alguma envia para a SEFAZ
-     * e em saso de sucesso no envio move o arquivo para a pasta das enviadas
+     * e em caso de sucesso no envio move o arquivo para a pasta das enviadas
      * ATENÇÃO : Existe um limite para o tamanho do arquivo a ser enviado ao SEFAZ
      *
      * @version 2.04
@@ -131,7 +131,7 @@ class AutoToolsNFePHP extends ToolsNFePHP {
         $recibo = '';
         //varre a pasta de validadas
         $aName = $this->listDir($this->valDir,'*-nfe.xml',false);
-        //se houver algum arquivo *-nfe.xml continua, caso contrario sai
+	//se houver algum arquivo *-nfe.xml continua, caso contrario sai
         $n = count($aName);
         if ( $n > 0 ) {
             //determina o numero de grupos de envio com 10 notas por grupo
@@ -148,23 +148,25 @@ class AutoToolsNFePHP extends ToolsNFePHP {
                         $aNFe[] = $nfefile;
                     }
                 }
-                //obter o numero do ultimo lote enviado
-                $num = $this->__getNumLot();
-                //incrementa o numero
-                $num++;
+		//obter o numero do ultimo lote enviado
+                //$num = $this->__getNumLot();
+                $num = substr(str_replace(',', '', number_format(microtime(true)*1000000, 0)), 0, 15);
+		//incrementa o numero
+                //$num++;
                 //enviar as notas
-                if ($ret = $this->sendLot($aNFe,$num,$this->modSOAP)){
-                    //incrementa o numero do lote no controle
-                    if (!$this->__putNumLot($num)){
-                        $this->errStatus = true;
-                        $this->errMsg .= "Falha na Gravação do numero do lote de envio!!\n";
-                        return false;
-                    }
+                if ($aret = $this->autoriza($aNFe,$num,$ret,0)){
+		    //incrementa o numero do lote no controle
+                    //if (!$this->__putNumLot($num)){
+                    //    $this->errStatus = true;
+                    //    $this->errMsg .= "Falha na Gravação do numero do lote de envio!!\n";
+                    //    return false;
+                    //}
                     //['bStat'=>false,'cStat'=>'','xMotivo'=>'','dhRecbto'=>'','nRec'=>'']                    
                     //verificar o status do envio
                     if ($ret['bStat']){
                         //pegar o numero do recibo da SEFAZ
-                        $recibo = $ret['nRec'];
+                        //$recibo = $ret['nRec'];
+			$recibo = $ret['infRec']['nRec'];
                         //mover as notas do lote para o diretorio de enviadas
                         //para cada em $aNames[] mover para $this->envDir
                         for ( $x = $i*10 ; $x < (($i+1)*10) ;$x++ ){
@@ -232,24 +234,26 @@ class AutoToolsNFePHP extends ToolsNFePHP {
             $nfefile = file_get_contents($filename);
             $aNFe[] = $nfefile;
             //obter o numero do ultimo lote enviado
-            $num = $this->__getNumLot();
-            //incrementa o numero
-            $num++;
+            //$num = $this->__getNumLot();
+	    $num = substr(str_replace(',', '', number_format(microtime(true)*1000000, 0)), 0, 15);
+	    //incrementa o numero
+            //$num++;
             //alternativamente pode ser usado o script abaixo para geração do numero de lote
             //$num = substr(str_replace(',','',number_format(microtime(true)*1000000,0)),0,15);
             //enviar as notas
-            if ($ret = $this->sendLot($aNFe,$num,$this->modSOAP)){
-                //verificar o status do envio
+            if ($aret = $this->autoriza($aNFe,$num,$ret,0)){
+		//verificar o status do envio
                 if ($ret['bStat'] == true && $ret['cStat'] == 103){
                     //pegar o numero do recibo da SEFAZ
-                    $recibo = $ret['nRec'];
+                    //$recibo = $ret['nRec'];
+		    $recibo = $ret['infRec']['nRec'];
                     //incrementa o numero do lote no controle
                     //comentar caso não use o controle de lote por arquivo
-                    if ($this->__putNumLot($num)){
-                        $this->errStatus = true;
-                        $this->errMsg .= "Falha na Gravação do numero do lote de envio!!\n";
-                        return false;
-                    }
+                    //if ($this->__putNumLot($num)){
+                    //    $this->errStatus = true;
+                    //    $this->errMsg .= "Falha na Gravação do numero do lote de envio!!\n";
+                    //    return false;
+                    //}
                     //como temos o recibo iniciar o loop
                     $loop = 0;
                     while ($loop < $maxLoop){
@@ -258,7 +262,7 @@ class AutoToolsNFePHP extends ToolsNFePHP {
                         //atrasar a consulta para permitir processamento da SEFAZ
                         sleep($minSec);
                         //consultar o ststus da NFe
-                        if($retProt = $this->getProtocol($recibo,'', $this->tpAmb, $this->modSOAP)){
+                        if($retProt = $this->getProtocol($recibo,'', $this->tpAmb, $retorno)){
                             if ($retProt['bStat'] == true){
                                 if ($retProt['cStat'] == 106){
                                     $this->errStatus = true;
@@ -353,20 +357,21 @@ class AutoToolsNFePHP extends ToolsNFePHP {
      */
     public function autoProtNFe(){
         //condição inicial da variável de retorno
-        $aRetorno = array(0=>array('cStat'=>'','xMotivo'=>'','nfepath'=>''));
+	$aRetorno = array(0=>array('cStat'=>'','xMotivo'=>'','nfepath'=>''));
         $n = 0;
         //varre a pasta de enviadas
         $aName = $this->listDir($this->envDir,'*-nfe.xml',false);
-        //se houver algum arquivo *-nfe.xml continua, caso contrario sai
+	//se houver algum arquivo *-nfe.xml continua, caso contrario sai
         if ( count($aName) > 0 ) {
-            //para cada arquivo nesta pasta solicitar o protocolo
+	    //para cada arquivo nesta pasta solicitar o protocolo
             foreach ( $aName as $file ) {
                 $idNFe = substr($file,0,44);
                 $nfeFile = $this->envDir.$file;
                 //primeiro verificar se o protocolo existe na pasta temporarias
                 $protFile = $this->temDir.$idNFe.'-prot.xml';
                 if (file_exists($protFile)){
-                    $docxml = file_get_contents($protFile);
+		    echo $protFile;
+		    $docxml = file_get_contents($protFile);
                     $dom = new DOMDocument(); //cria objeto DOM
                     $dom->formatOutput = false;
                     $dom->preserveWhiteSpace = false;
@@ -375,13 +380,14 @@ class AutoToolsNFePHP extends ToolsNFePHP {
                     $aRet['cStat'] = $dom->getElementsByTagName('cStat')->item(0)->nodeValue;
                     $aRet['xMotivo'] = $dom->getElementsByTagName('xMotivo')->item(0)->nodeValue;
                     $aRet['bStat'] = true;
+		    echo $aRet['cStat'];
                 } else {
                     //caso não exista então buscar pela chave da NFe
-                    $aRet = $this->getProtocol('',$idNFe,$this->tpAmb,$this->modSOAP);
+		    $retorno = $this->getProtocol('',$idNFe,$this->tpAmb,$aRet);
                 }    
                 if ( $aRet['cStat'] == 100) {
                     //NFe aprovada
-                    $pasta = $this->aprDir;
+		    $pasta = $this->aprDir;
                 }//endif
                 if ( $aRet['cStat'] == 110) {
                     //NFe denegada
