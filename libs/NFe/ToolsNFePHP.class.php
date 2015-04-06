@@ -2034,16 +2034,30 @@ class ToolsNFePHP extends CommonNFePHP
             $operation = $aURL[$servico]['operation'];
             $namespace = $this->URLPortal.'/wsdl/'.$operation;
             //valida o parâmetro da string do XML da NF-e
-            if (empty($sxml) || ! simplexml_load_string($sxml)) {
-                throw new nfephpException("XML de NF-e para autorizacao "
-                        . "recebido no parametro parece invalido, verifique");
-            }
+	    //if (empty($sxml) || ! simplexml_load_string($sxml)) {
+            //    throw new nfephpException("XML de NF-e para autorizacao "
+            //            . "recebido no parametro parece invalido, verifique");
+            //}
             // limpa a variavel
-            $sNFe = $sxml;
+	    $sNFe = '';
+	    if (is_array($sxml)){
+	    	if ( count($sxml) > 50 ) {
+		   $msg =  "No maximo 50 NFe devem compor um lote de envio!!";
+		   $this->__setError($msg);
+		   if ($this->exceptions) {
+		      throw new nfephpException($msg);
+		   }
+		   return false;
+		}
+		// monta string com todas as NFe enviadas no array
+		$sNFe = implode('',$sxml);
+	    } else {
+	        $sNFe = $sxml;
+	    }
             //remove <?xml version="1.0" encoding=... e demais caracteres indesejados
             $sNFe = preg_replace("/<\?xml.*\?>/", "", $sNFe);
             $sNFe = str_replace(array("\r","\n","\s"), "", $sNFe);
-            //montagem do cabeçalho da comunicação SOAP
+	    //montagem do cabeçalho da comunicação SOAP
             $cabec = "<nfeCabecMsg xmlns=\"$namespace\">"
                     . "<cUF>$this->cUF</cUF>"
                     . "<versaoDados>$versao</versaoDados>"
@@ -2053,7 +2067,7 @@ class ToolsNFePHP extends CommonNFePHP
                     . "<enviNFe xmlns=\"$this->URLPortal\" versao=\"$versao\">"
                     . "<idLote>$idLote</idLote>"
                     . "<indSinc>$indSinc</indSinc>$sNFe</enviNFe></nfeDadosMsg>";
-            //envia dados via SOAP
+	    //envia dados via SOAP
             $retorno = $this->pSendSOAP($urlservico, $namespace, $cabec, $dados, $metodo, $this->tpAmb);
             //verifica o retorno
             if (! $retorno) {
