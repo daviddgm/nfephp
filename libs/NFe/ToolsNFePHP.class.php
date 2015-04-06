@@ -2033,15 +2033,10 @@ class ToolsNFePHP extends CommonNFePHP
             //montagem do namespace do serviço
             $operation = $aURL[$servico]['operation'];
             $namespace = $this->URLPortal.'/wsdl/'.$operation;
-            //valida o parâmetro da string do XML da NF-e
-	    //if (empty($sxml) || ! simplexml_load_string($sxml)) {
-            //    throw new nfephpException("XML de NF-e para autorizacao "
-            //            . "recebido no parametro parece invalido, verifique");
-            //}
             // limpa a variavel
-	    $sNFe = '';
+            $sNFe = '';
 	    if (is_array($sxml)){
-	    	if ( count($sxml) > 50 ) {
+		if ( count($sxml) > 50 ) {
 		   $msg =  "No maximo 50 NFe devem compor um lote de envio!!";
 		   $this->__setError($msg);
 		   if ($this->exceptions) {
@@ -2054,6 +2049,11 @@ class ToolsNFePHP extends CommonNFePHP
 	    } else {
 	        $sNFe = $sxml;
 	    }
+	    //valida o parâmetro da string do XML da NF-e
+	    if (empty($sNFe) || ! simplexml_load_string($sNFe)) {
+                throw new nfephpException("XML de NF-e para autorizacao "
+                        . "recebido no parametro parece invalido, verifique");
+            }
             //remove <?xml version="1.0" encoding=... e demais caracteres indesejados
             $sNFe = preg_replace("/<\?xml.*\?>/", "", $sNFe);
             $sNFe = str_replace(array("\r","\n","\s"), "", $sNFe);
